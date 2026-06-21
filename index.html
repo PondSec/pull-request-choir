@@ -660,38 +660,38 @@
       const $ = (id) => document.getElementById(id);
       const midi = (note) => ({ C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 }[note[0]] + (Number(note.slice(1)) + 1) * 12);
       const frequencyFromMidi = (value) => 440 * 2 ** ((value - 69) / 12);
-      const sequenceDelay = () => Math.max(1280, Math.round(120000 / state.bpm));
+      const sequenceDelay = () => Math.max(760, Math.round(60000 / state.bpm));
       const hash = (value) => [...value].reduce((acc, char) => Math.imul(acc ^ char.charCodeAt(0), 16777619) >>> 0, 2166136261);
       const progression = [
-        { name: "Cmaj9", root: 48, tones: [0, 4, 7, 11, 14] },
-        { name: "G6sus", root: 43, tones: [0, 5, 7, 9, 14] },
-        { name: "Am7", root: 45, tones: [0, 3, 7, 10, 14] },
-        { name: "Fmaj7", root: 41, tones: [0, 4, 7, 11, 14] }
+        { name: "Cmaj9", root: 60, chord: [0, 4, 7, 11, 14], stable: [0, 4, 7] },
+        { name: "G/B", root: 59, chord: [0, 5, 8, 12], stable: [0, 8, 12] },
+        { name: "Am7", root: 57, chord: [0, 3, 7, 10], stable: [0, 3, 7] },
+        { name: "Fmaj7", root: 53, chord: [0, 4, 7, 11], stable: [0, 4, 7] },
+        { name: "Dm9", root: 62, chord: [0, 3, 7, 10, 14], stable: [0, 3, 7] },
+        { name: "G7sus", root: 55, chord: [0, 5, 7, 10, 14], stable: [0, 5, 10] },
+        { name: "Em7", root: 64, chord: [0, 3, 7, 10], stable: [0, 3, 7] },
+        { name: "F/G", root: 55, chord: [0, 5, 9, 12, 17], stable: [0, 5, 12] }
       ];
-      const moodShapes = {
-        calm: [0, 2],
-        focus: [0, 2, 3],
-        hope: [0, 1, 2],
-        wonder: [1, 2, 4],
-        defiance: [0, 3, 2],
-        joy: [2, 3, 4],
-        chaos: [1, 3, 4]
+      const scale = [60, 62, 64, 65, 67, 69, 71, 72, 74, 76];
+      const phraseTargets = [64, 67, 69, 65, 62, 69, 64, 72, 67, 71, 69, 65, 62, 65, 64, 72];
+      const moodBias = {
+        calm: { center: 64, weight: 1.0 },
+        focus: { center: 67, weight: 0.8 },
+        hope: { center: 69, weight: 0.75 },
+        wonder: { center: 72, weight: 0.65 },
+        defiance: { center: 67, weight: 0.55 },
+        joy: { center: 74, weight: 0.5 },
+        chaos: { center: 65, weight: 0.45 }
       };
 
       function normalizeVoice(voice, index) {
         const angle = index * 2.399963;
         const seed = hash(`${voice.id}:${voice.handle}:${voice.phrase}`);
-        const chord = progression[seed % progression.length];
-        const tone = chord.tones[(seed >>> 4) % chord.tones.length];
-        const octave = voice.mood === "joy" || voice.mood === "wonder" ? 24 : 12;
         return {
           ...voice,
           x: voice.x ?? 0.5 + Math.cos(angle) * (0.18 + (index % 5) * 0.045),
           y: voice.y ?? 0.47 + Math.sin(angle) * (0.16 + (index % 4) * 0.04),
           color: fallbackChoir.moods[voice.mood]?.accent ?? "#4a7c59",
-          frequency: frequencyFromMidi(chord.root + tone + octave),
-          harmonyChord: chord.name,
-          harmonyTone: chord.root + tone + octave,
           seed,
           number: voice.number ?? index + 1
         };
@@ -699,6 +699,78 @@
 
       function melodicOrder(voices) {
         return [...voices].sort((a, b) => midi(a.note) - midi(b.note) || a.mood.localeCompare(b.mood) || a.id.localeCompare(b.id));
+      }
+
+      function chordNotes(chord) {
+        return chord.chord
+          .map((tone) => chord.root + tone)
+          .filter((note) => note >= 60 && note <= 76);
+      }
+
+      function nearestInScale(value) {
+        return scale.reduce((best, note) => Math.abs(note - value) < Math.abs(best - value) ? note : best, scale[0]);
+      }
+
+      function hasThreeNoteRun(history, candidate) {
+        if (history.length < 2) return false;
+        const a = history[history.length - 2];
+        const b = history[history.length - 1];
+        const first = Math.sign(b - a);
+        const second = Math.sign(candidate - b);
+        return first && first === second && Math.abs(b - a) <= 2 && Math.abs(candidate - b) <= 2;
+      }
+
+      function scoreCandidate(candidate, index, voice, history) {
+        const chord = progression[index % progression.length];
+        const previous = history.at(-1) ?? 64;
+        const beforePrevious = history.at(-2) ?? previous;
+        const interval = candidate - previous;
+        const absInterval = Math.abs(interval);
+        const chordTone = chordNotes(chord).includes(candidate);
+        const stableTone = chord.stable.some((tone) => chord.root + tone === candidate);
+        const strongPosition = index % 4 === 0 || index % 8 === 7;
+        const phraseTarget = phraseTargets[index % phraseTargets.length];
+        const bias = moodBias[voice.mood] || moodBias.calm;
+        let score = 100;
+
+        score -= absInterval * 8;
+        score -= Math.abs(candidate - phraseTarget) * 6;
+        if (absInterval === 0) score -= 38;
+        if (candidate === beforePrevious && absInterval === 0) score -= 72;
+        if (absInterval > 7) score -= 85;
+        if (absInterval > 4 && Math.sign(interval) === Math.sign(previous - beforePrevious)) score -= 36;
+        if (hasThreeNoteRun(history, candidate)) score -= 42;
+        if (strongPosition && !chordTone) score -= 48;
+        if (strongPosition && stableTone) score += 24;
+        if (!strongPosition && chordTone) score += 8;
+        if (index % 8 === 7) score -= Math.abs(candidate - phraseTarget) * 12;
+        score -= Math.abs(candidate - bias.center) * bias.weight;
+        score += ((voice.seed >>> (index % 12)) & 7) * 0.35;
+        return score;
+      }
+
+      function assignMelody(voices) {
+        const history = [];
+        return voices.map((voice, index) => {
+          const chord = progression[index % progression.length];
+          const previous = history.at(-1) ?? 64;
+          const scaleCandidates = scale.filter((note) => Math.abs(note - previous) <= 7);
+          const chordCandidates = chordNotes(chord);
+          const candidates = [...new Set([
+            ...scaleCandidates,
+            ...chordCandidates,
+            nearestInScale((moodBias[voice.mood] || moodBias.calm).center)
+          ])].filter((note) => note >= 60 && note <= 76);
+          const melodyMidi = candidates
+            .sort((a, b) => scoreCandidate(b, index, voice, history) - scoreCandidate(a, index, voice, history))[0];
+          history.push(melodyMidi);
+          return {
+            ...voice,
+            melodyMidi,
+            harmonyChord: chord.name,
+            frequency: frequencyFromMidi(melodyMidi)
+          };
+        });
       }
 
       function ensureAudio() {
@@ -724,11 +796,11 @@
 
         convolver.buffer = impulse;
         dry.gain.value = 0.34;
-        wet.gain.value = 0.38;
-        delay.delayTime.value = 0.42;
-        delaySend.gain.value = 0.11;
-        feedback.gain.value = 0.18;
-        master.gain.value = 0.58;
+        wet.gain.value = 0.32;
+        delay.delayTime.value = 0.36;
+        delaySend.gain.value = 0.08;
+        feedback.gain.value = 0.14;
+        master.gain.value = 0.62;
         filter.type = "lowpass";
         filter.frequency.value = 5200;
         filter.Q.value = 0.4;
@@ -778,49 +850,17 @@
       function playVoice(voice) {
         const audio = ensureAudio();
         const now = audio.ctx.currentTime;
-        const step = state.selected % progression.length;
-        const chord = progression[step];
-        const shape = moodShapes[voice.mood] || moodShapes.wonder;
-        const pan = (voice.x - 0.5) * 0.85;
-        const padNotes = [0, 1, 2, 4].map((degree) => chord.root + chord.tones[degree] + 12);
+        const pan = (voice.x - 0.5) * 0.72;
 
         tone(audio, {
-          frequency: frequencyFromMidi(chord.root - 12),
+          frequency: voice.frequency,
           start: now,
-          duration: 2.8,
-          attack: 0.38,
-          gain: 0.018,
-          cutoff: 900,
-          pan: -0.08,
-          type: "sine"
-        });
-
-        padNotes.forEach((note, index) => {
-          tone(audio, {
-            frequency: frequencyFromMidi(note),
-            start: now + index * 0.018,
-            duration: 3.1,
-            attack: 0.62,
-            gain: 0.009,
-            cutoff: 1400,
-            pan: [-0.28, -0.08, 0.12, 0.3][index],
-            type: "sine"
-          });
-        });
-
-        shape.forEach((degree, index) => {
-          const chordTone = chord.tones[(degree + (voice.seed % 2)) % chord.tones.length];
-          const octave = voice.mood === "joy" || voice.mood === "wonder" ? 24 : 12;
-          tone(audio, {
-            frequency: frequencyFromMidi(chord.root + chordTone + octave),
-            start: now + 0.42 + index * 0.24,
-            duration: 1.7 + index * 0.18,
-            attack: 0.08,
-            gain: 0.028,
-            cutoff: 2600,
-            pan,
-            type: index === 0 ? "sine" : "triangle"
-          });
+          duration: 1.9,
+          attack: 0.055,
+          gain: 0.062,
+          cutoff: 3100,
+          pan,
+          type: voice.mood === "calm" ? "sine" : "triangle"
         });
       }
 
@@ -918,7 +958,7 @@
         $("voicePhrase").textContent = `"${voice.phrase}"`;
         $("voiceHandle").textContent = `@${voice.handle}`;
         $("voiceMood").textContent = voice.mood;
-        $("voiceNote").textContent = `${voice.note} => ${progression[index % progression.length].name}`;
+        $("voiceNote").textContent = `${voice.note} => ${voice.harmonyChord} / midi ${voice.melodyMidi}`;
         $("voiceReplies").textContent = voice.respondsTo?.length ? voice.respondsTo.map((id) => state.voices.find((item) => item.id === id)?.displayName || id).join(", ") : "root voice";
         document.querySelectorAll(".mood").forEach((button) => button.setAttribute("aria-pressed", String(button.dataset.mood === voice.mood)));
         document.querySelectorAll(".voice-pick").forEach((button) => button.setAttribute("aria-current", String(Number(button.dataset.index) === index)));
@@ -938,7 +978,7 @@
 
         state.choir.tempo = 82;
         state.choir.moods = fallbackChoir.moods;
-        state.voices = melodicOrder((state.choir.voices || fallbackChoir.voices).map(normalizeVoice));
+        state.voices = assignMelody(melodicOrder((state.choir.voices || fallbackChoir.voices).map(normalizeVoice)));
         $("scoreHash").textContent = state.choir.signature || fallbackChoir.signature;
         $("scoreMeta").textContent = `${state.voices.length} voices · ${state.choir.links?.length || state.choir.stats?.links || 0} replies · public/choir.json`;
         renderMoods();
