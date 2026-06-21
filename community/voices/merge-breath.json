@@ -1,0 +1,10 @@
+{
+  "id": "merge-breath",
+  "handle": "PondSec",
+  "displayName": "Merge Breath",
+  "phrase": "Every merge is one breath in a thing no single person can finish.",
+  "mood": "hope",
+  "note": "B3",
+  "color": "#f4cf44",
+  "respondsTo": ["small-ritual"]
+}

@@ -1,0 +1,10 @@
+{
+  "id": "static-bloom",
+  "handle": "PondSec",
+  "displayName": "Static Bloom",
+  "phrase": "Static files can still bloom if enough people touch them.",
+  "mood": "chaos",
+  "note": "F5",
+  "color": "#ea78ff",
+  "respondsTo": ["glitch-petal"]
+}

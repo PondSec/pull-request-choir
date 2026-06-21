@@ -1,0 +1,30 @@
+Primary subreddit:
+r/InternetIsBeautiful
+
+Backup subreddits:
+r/github
+r/programming
+r/webdev
+
+Suggested title:
+I built a website where every GitHub pull request becomes a permanent note in a song made by strangers
+
+Suggested post text:
+I made Pull Request Choir, a tiny experiment in making a GitHub repo feel alive.
+
+The idea: every contributor adds one small JSON file. That pull request becomes a permanent voice in a browser-based song and constellation. No backend, no database, no tracking. GitHub is the database and PRs are the instrument.
+
+Repo:
+https://github.com/PondSec/pull-request-choir
+
+Live demo:
+https://pondsec.github.io/pull-request-choir/
+
+How to join:
+1. Fork the repo
+2. Run `npm run new-voice`
+3. Open a PR
+
+If enough people add one note, the project turns into a public song that nobody owns alone.
+
+I would love to see what the internet sounds like when strangers build one tiny thing together.

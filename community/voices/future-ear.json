@@ -1,0 +1,10 @@
+{
+  "id": "future-ear",
+  "handle": "PondSec",
+  "displayName": "Future Ear",
+  "phrase": "Someone will open this later and hear that we tried to build together.",
+  "mood": "wonder",
+  "note": "D5",
+  "color": "#72ffe0",
+  "respondsTo": ["stranger-loop", "merge-breath"]
+}

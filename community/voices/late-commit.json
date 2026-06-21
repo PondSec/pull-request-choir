@@ -1,0 +1,10 @@
+{
+  "id": "late-commit",
+  "handle": "PondSec",
+  "displayName": "Late Commit",
+  "phrase": "Some of the best ideas arrive after midnight and pretend they were planned.",
+  "mood": "focus",
+  "note": "D4",
+  "color": "#6ea8ff",
+  "respondsTo": ["first-light"]
+}

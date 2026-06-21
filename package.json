@@ -1,0 +1,33 @@
+{
+  "name": "pull-request-choir",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "A git-native community instrument where every pull request adds one permanent voice.",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1",
+    "build": "npm run build:choir && tsc -b && vite build",
+    "build:choir": "node scripts/build-choir.mjs",
+    "validate": "node scripts/validate-voices.mjs",
+    "new-voice": "node scripts/new-voice.mjs",
+    "preview": "vite preview --host 127.0.0.1",
+    "smoke": "node scripts/smoke-test.mjs"
+  },
+  "dependencies": {
+    "@vitejs/plugin-react": "^5.1.2",
+    "react": "^19.2.3",
+    "react-dom": "^19.2.3",
+    "vite": "^7.3.0"
+  },
+  "devDependencies": {
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
+    "typescript": "^5.9.3"
+  },
+  "overrides": {
+    "esbuild": "^0.28.1"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

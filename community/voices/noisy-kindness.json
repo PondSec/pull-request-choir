@@ -1,0 +1,10 @@
+{
+  "id": "noisy-kindness",
+  "handle": "PondSec",
+  "displayName": "Noisy Kindness",
+  "phrase": "Kindness does not have to be quiet; sometimes it needs a sequencer.",
+  "mood": "joy",
+  "note": "A5",
+  "color": "#ffbd66",
+  "respondsTo": ["open-window"]
+}

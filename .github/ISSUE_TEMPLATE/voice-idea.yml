@@ -1,0 +1,17 @@
+name: Voice idea
+description: Suggest a non-code idea for the choir
+title: "[voice idea] "
+labels: ["voice idea"]
+body:
+  - type: textarea
+    id: idea
+    attributes:
+      label: Idea
+      description: What should the choir do as more people join?
+    validations:
+      required: true
+  - type: input
+    id: remix
+    attributes:
+      label: Remix angle
+      description: Could this become a visual, audio, CLI, or community mechanic?

@@ -1,0 +1,10 @@
+{
+  "id": "green-room",
+  "handle": "PondSec",
+  "displayName": "Green Room",
+  "phrase": "Before the internet gets loud, let it tune one shared note.",
+  "mood": "calm",
+  "note": "D3",
+  "color": "#7df58c",
+  "respondsTo": ["quiet-room"]
+}

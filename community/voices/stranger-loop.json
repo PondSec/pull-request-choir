@@ -1,0 +1,10 @@
+{
+  "id": "stranger-loop",
+  "handle": "PondSec",
+  "displayName": "Stranger Loop",
+  "phrase": "The loop gets better when somebody you will never meet answers it.",
+  "mood": "wonder",
+  "note": "A3",
+  "color": "#55efcf",
+  "respondsTo": ["first-light", "open-window"]
+}

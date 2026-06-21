@@ -1,0 +1,10 @@
+{
+  "id": "signal-flare",
+  "handle": "PondSec",
+  "displayName": "Signal Flare",
+  "phrase": "This is not a guestbook; it is a signal flare with version control.",
+  "mood": "defiance",
+  "note": "G5",
+  "color": "#ff6684",
+  "respondsTo": ["red-button"]
+}

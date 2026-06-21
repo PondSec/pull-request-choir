@@ -1,0 +1,10 @@
+{
+  "id": "clean-diff",
+  "handle": "PondSec",
+  "displayName": "Clean Diff",
+  "phrase": "One small clean diff can make a stranger feel invited.",
+  "mood": "focus",
+  "note": "E5",
+  "color": "#7ab4ff",
+  "respondsTo": ["late-commit"]
+}

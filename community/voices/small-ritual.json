@@ -1,0 +1,10 @@
+{
+  "id": "small-ritual",
+  "handle": "PondSec",
+  "displayName": "Small Ritual",
+  "phrase": "Fork, add a voice, open a pull request, become part of the song.",
+  "mood": "hope",
+  "note": "C5",
+  "color": "#ffe06d",
+  "respondsTo": ["tiny-proof"]
+}

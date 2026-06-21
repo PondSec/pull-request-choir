@@ -1,0 +1,10 @@
+{
+  "id": "red-button",
+  "handle": "PondSec",
+  "displayName": "Red Button",
+  "phrase": "Pressing merge should feel like adding a spark to a public machine.",
+  "mood": "defiance",
+  "note": "A4",
+  "color": "#ff5f7e",
+  "respondsTo": ["late-commit"]
+}

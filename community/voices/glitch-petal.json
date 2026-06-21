@@ -1,0 +1,10 @@
+{
+  "id": "glitch-petal",
+  "handle": "PondSec",
+  "displayName": "Glitch Petal",
+  "phrase": "The strange notes are where the whole thing starts to feel alive.",
+  "mood": "chaos",
+  "note": "B4",
+  "color": "#e66dff",
+  "respondsTo": ["red-button"]
+}

@@ -1,0 +1,10 @@
+{
+  "id": "quiet-room",
+  "handle": "PondSec",
+  "displayName": "Quiet Room",
+  "phrase": "Leave room for the quiet people; they often carry the best harmonies.",
+  "mood": "calm",
+  "note": "C4",
+  "color": "#9df58d",
+  "respondsTo": ["tiny-proof"]
+}

@@ -1,0 +1,10 @@
+{
+  "id": "open-window",
+  "handle": "PondSec",
+  "displayName": "Open Window",
+  "phrase": "A public repo is an open window; sometimes the world sings back.",
+  "mood": "joy",
+  "note": "F4",
+  "color": "#ffad5a",
+  "respondsTo": ["quiet-room"]
+}
