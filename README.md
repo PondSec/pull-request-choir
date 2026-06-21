@@ -8,6 +8,8 @@ The more people contribute, the better the project becomes.
 
 Live demo: https://pondsec.github.io/pull-request-choir/
 
+The submitted note stays visible as metadata, but playback is automatically mapped into a shared chord progression so the whole choir remains harmonic as more voices are merged.
+
 ## Try It
 
 ```bash

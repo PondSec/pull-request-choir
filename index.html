@@ -659,15 +659,40 @@
 
       const $ = (id) => document.getElementById(id);
       const midi = (note) => ({ C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 }[note[0]] + (Number(note.slice(1)) + 1) * 12);
+      const frequencyFromMidi = (value) => 440 * 2 ** ((value - 69) / 12);
+      const sequenceDelay = () => Math.max(1280, Math.round(120000 / state.bpm));
+      const hash = (value) => [...value].reduce((acc, char) => Math.imul(acc ^ char.charCodeAt(0), 16777619) >>> 0, 2166136261);
+      const progression = [
+        { name: "Cmaj9", root: 48, tones: [0, 4, 7, 11, 14] },
+        { name: "G6sus", root: 43, tones: [0, 5, 7, 9, 14] },
+        { name: "Am7", root: 45, tones: [0, 3, 7, 10, 14] },
+        { name: "Fmaj7", root: 41, tones: [0, 4, 7, 11, 14] }
+      ];
+      const moodShapes = {
+        calm: [0, 2],
+        focus: [0, 2, 3],
+        hope: [0, 1, 2],
+        wonder: [1, 2, 4],
+        defiance: [0, 3, 2],
+        joy: [2, 3, 4],
+        chaos: [1, 3, 4]
+      };
 
       function normalizeVoice(voice, index) {
         const angle = index * 2.399963;
+        const seed = hash(`${voice.id}:${voice.handle}:${voice.phrase}`);
+        const chord = progression[seed % progression.length];
+        const tone = chord.tones[(seed >>> 4) % chord.tones.length];
+        const octave = voice.mood === "joy" || voice.mood === "wonder" ? 24 : 12;
         return {
           ...voice,
           x: voice.x ?? 0.5 + Math.cos(angle) * (0.18 + (index % 5) * 0.045),
           y: voice.y ?? 0.47 + Math.sin(angle) * (0.16 + (index % 4) * 0.04),
-          color: voice.color ?? fallbackChoir.moods[voice.mood]?.accent ?? "#4a7c59",
-          frequency: voice.frequency ?? 440 * 2 ** ((midi(voice.note) - 69) / 12),
+          color: fallbackChoir.moods[voice.mood]?.accent ?? "#4a7c59",
+          frequency: frequencyFromMidi(chord.root + tone + octave),
+          harmonyChord: chord.name,
+          harmonyTone: chord.root + tone + octave,
+          seed,
           number: voice.number ?? index + 1
         };
       }
@@ -686,54 +711,116 @@
         const convolver = ctx.createConvolver();
         const delay = ctx.createDelay(1.1);
         const feedback = ctx.createGain();
+        const delaySend = ctx.createGain();
+        const filter = ctx.createBiquadFilter();
+        const compressor = ctx.createDynamicsCompressor();
         const length = ctx.sampleRate * 4.6;
         const impulse = ctx.createBuffer(2, length, ctx.sampleRate);
 
         for (let channel = 0; channel < 2; channel += 1) {
           const data = impulse.getChannelData(channel);
-          for (let i = 0; i < length; i += 1) data[i] = (Math.random() * 2 - 1) * (1 - i / length) ** 3.1;
+          for (let i = 0; i < length; i += 1) data[i] = (Math.random() * 2 - 1) * (1 - i / length) ** 3.8;
         }
 
         convolver.buffer = impulse;
-        dry.gain.value = 0.48;
-        wet.gain.value = 0.54;
-        delay.delayTime.value = 0.29;
-        feedback.gain.value = 0.22;
-        master.gain.value = 0.82;
+        dry.gain.value = 0.34;
+        wet.gain.value = 0.38;
+        delay.delayTime.value = 0.42;
+        delaySend.gain.value = 0.11;
+        feedback.gain.value = 0.18;
+        master.gain.value = 0.58;
+        filter.type = "lowpass";
+        filter.frequency.value = 5200;
+        filter.Q.value = 0.4;
+        compressor.threshold.value = -24;
+        compressor.knee.value = 18;
+        compressor.ratio.value = 2.2;
+        compressor.attack.value = 0.018;
+        compressor.release.value = 0.32;
         dry.connect(master);
         convolver.connect(wet);
         wet.connect(master);
+        delaySend.connect(delay);
         delay.connect(feedback);
         feedback.connect(delay);
         delay.connect(convolver);
-        master.connect(ctx.destination);
-        state.audio = { ctx, dry, convolver, delay };
+        master.connect(filter);
+        filter.connect(compressor);
+        compressor.connect(ctx.destination);
+        state.audio = { ctx, dry, convolver, delaySend };
         return state.audio;
+      }
+
+      function tone(audio, options) {
+        const osc = audio.ctx.createOscillator();
+        const gain = audio.ctx.createGain();
+        const pan = audio.ctx.createStereoPanner();
+        const filter = audio.ctx.createBiquadFilter();
+        osc.type = options.type || "sine";
+        osc.frequency.setValueAtTime(options.frequency, options.start);
+        pan.pan.setValueAtTime(options.pan || 0, options.start);
+        filter.type = "lowpass";
+        filter.frequency.setValueAtTime(options.cutoff || 2400, options.start);
+        filter.Q.setValueAtTime(0.2, options.start);
+        gain.gain.setValueAtTime(0.0001, options.start);
+        gain.gain.linearRampToValueAtTime(options.gain, options.start + options.attack);
+        gain.gain.exponentialRampToValueAtTime(0.0001, options.start + options.duration);
+        osc.connect(filter);
+        filter.connect(gain);
+        gain.connect(pan);
+        pan.connect(audio.dry);
+        pan.connect(audio.convolver);
+        pan.connect(audio.delaySend);
+        osc.start(options.start);
+        osc.stop(options.start + options.duration + 0.08);
       }
 
       function playVoice(voice) {
         const audio = ensureAudio();
         const now = audio.ctx.currentTime;
-        const motif = { calm: [0, 12], focus: [0, 7, 14], hope: [0, 4, 7], wonder: [0, 7, 12], defiance: [0, 3, 10], joy: [0, 4, 9], chaos: [0, 5, 11] }[voice.mood] || [0, 7, 12];
+        const step = state.selected % progression.length;
+        const chord = progression[step];
+        const shape = moodShapes[voice.mood] || moodShapes.wonder;
+        const pan = (voice.x - 0.5) * 0.85;
+        const padNotes = [0, 1, 2, 4].map((degree) => chord.root + chord.tones[degree] + 12);
 
-        motif.forEach((step, i) => {
-          const osc = audio.ctx.createOscillator();
-          const gain = audio.ctx.createGain();
-          const pan = audio.ctx.createStereoPanner();
-          const start = now + i * 0.18;
-          osc.type = voice.mood === "calm" ? "sine" : "triangle";
-          osc.frequency.setValueAtTime(voice.frequency * 2 ** (step / 12), start);
-          pan.pan.setValueAtTime((voice.x - 0.5) * 1.35, start);
-          gain.gain.setValueAtTime(0.0001, start);
-          gain.gain.exponentialRampToValueAtTime(0.08, start + 0.04);
-          gain.gain.exponentialRampToValueAtTime(0.0001, start + 1.35 + i * 0.14);
-          osc.connect(gain);
-          gain.connect(pan);
-          pan.connect(audio.dry);
-          pan.connect(audio.convolver);
-          pan.connect(audio.delay);
-          osc.start(start);
-          osc.stop(start + 1.6);
+        tone(audio, {
+          frequency: frequencyFromMidi(chord.root - 12),
+          start: now,
+          duration: 2.8,
+          attack: 0.38,
+          gain: 0.018,
+          cutoff: 900,
+          pan: -0.08,
+          type: "sine"
+        });
+
+        padNotes.forEach((note, index) => {
+          tone(audio, {
+            frequency: frequencyFromMidi(note),
+            start: now + index * 0.018,
+            duration: 3.1,
+            attack: 0.62,
+            gain: 0.009,
+            cutoff: 1400,
+            pan: [-0.28, -0.08, 0.12, 0.3][index],
+            type: "sine"
+          });
+        });
+
+        shape.forEach((degree, index) => {
+          const chordTone = chord.tones[(degree + (voice.seed % 2)) % chord.tones.length];
+          const octave = voice.mood === "joy" || voice.mood === "wonder" ? 24 : 12;
+          tone(audio, {
+            frequency: frequencyFromMidi(chord.root + chordTone + octave),
+            start: now + 0.42 + index * 0.24,
+            duration: 1.7 + index * 0.18,
+            attack: 0.08,
+            gain: 0.028,
+            cutoff: 2600,
+            pan,
+            type: index === 0 ? "sine" : "triangle"
+          });
         });
       }
 
@@ -831,7 +918,7 @@
         $("voicePhrase").textContent = `"${voice.phrase}"`;
         $("voiceHandle").textContent = `@${voice.handle}`;
         $("voiceMood").textContent = voice.mood;
-        $("voiceNote").textContent = voice.note;
+        $("voiceNote").textContent = `${voice.note} => ${progression[index % progression.length].name}`;
         $("voiceReplies").textContent = voice.respondsTo?.length ? voice.respondsTo.map((id) => state.voices.find((item) => item.id === id)?.displayName || id).join(", ") : "root voice";
         document.querySelectorAll(".mood").forEach((button) => button.setAttribute("aria-pressed", String(button.dataset.mood === voice.mood)));
         document.querySelectorAll(".voice-pick").forEach((button) => button.setAttribute("aria-current", String(Number(button.dataset.index) === index)));
@@ -850,6 +937,7 @@
         } catch {}
 
         state.choir.tempo = 82;
+        state.choir.moods = fallbackChoir.moods;
         state.voices = melodicOrder((state.choir.voices || fallbackChoir.voices).map(normalizeVoice));
         $("scoreHash").textContent = state.choir.signature || fallbackChoir.signature;
         $("scoreMeta").textContent = `${state.voices.length} voices · ${state.choir.links?.length || state.choir.stats?.links || 0} replies · public/choir.json`;
@@ -863,7 +951,7 @@
         $("bpmValue").textContent = `${state.bpm} bpm`;
         if (state.playing) {
           clearInterval(state.timer);
-          state.timer = setInterval(tick, Math.max(360, Math.round(60000 / state.bpm)));
+          state.timer = setInterval(tick, sequenceDelay());
         }
       });
 
@@ -876,7 +964,7 @@
         clearInterval(state.timer);
         if (state.playing) {
           playVoice(state.voices[state.selected]);
-          state.timer = setInterval(tick, Math.max(360, Math.round(60000 / state.bpm)));
+          state.timer = setInterval(tick, sequenceDelay());
         }
       });
 
