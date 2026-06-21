@@ -15,39 +15,33 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  build:
+  package:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v5
-
-      - name: Setup Node
-        uses: actions/setup-node@v6
-        with:
-          node-version: 22
-          cache: npm
-
-      - name: Install
-        run: npm ci
-
-      - name: Build
-        run: npm run build
 
       - name: Configure Pages
         uses: actions/configure-pages@v6
         with:
           enablement: true
 
+      - name: Package static site
+        run: |
+          mkdir -p _site/public
+          cp index.html _site/index.html
+          cp public/choir.json _site/public/choir.json
+
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v5
         with:
-          path: dist
+          path: _site
 
   deploy:
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
-    needs: build
+    needs: package
     runs-on: ubuntu-latest
     steps:
       - name: Deploy to GitHub Pages

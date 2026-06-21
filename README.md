@@ -6,6 +6,8 @@ Pull Request Choir is a git-native community instrument. There is no backend, no
 
 The more people contribute, the better the project becomes.
 
+Live demo: https://pondsec.github.io/pull-request-choir/
+
 ## Try It
 
 ```bash
@@ -13,7 +15,7 @@ npm install
 npm run dev
 ```
 
-Then open the local URL from Vite and press **Play choir**.
+Then open the local URL and press **Listen**.
 
 ## Add Your Voice
 
@@ -23,7 +25,7 @@ cd pull-request-choir
 npm install
 npm run new-voice
 npm run validate
-npm run build
+npm run build:data
 ```
 
 Open a pull request with your new file from `community/voices/`.
@@ -49,9 +51,9 @@ It turns the pull request itself into the social mechanic: every merge changes t
 ```bash
 npm run new-voice     # interactive contribution wizard
 npm run validate      # validate all community voices
-npm run build:choir   # generate src/generated/choir.ts and public/choir.json
-npm run build         # production build
-npm run smoke         # quick dist/data smoke test
+npm run build:data    # regenerate public/choir.json
+npm run dev           # serve the static page locally
+npm run smoke         # quick static page/data smoke test
 ```
 
 ## Project Shape
@@ -59,7 +61,7 @@ npm run smoke         # quick dist/data smoke test
 ```text
 community/voices/     Community-owned voice JSON files
 scripts/              Validator, generator, and contribution wizard
-src/                  React + Canvas + Web Audio app
+index.html            Standalone HTML/CSS/JS interface
 public/choir.json     Static generated data for remixers
 ```
 

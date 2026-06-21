@@ -10,7 +10,7 @@ permissions:
   contents: read
 
 jobs:
-  validate-build:
+  validate-static-page:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -28,8 +28,8 @@ jobs:
       - name: Validate voices
         run: npm run validate
 
-      - name: Build
-        run: npm run build
+      - name: Build static data
+        run: npm run build:data
 
       - name: Smoke test
         run: npm run smoke

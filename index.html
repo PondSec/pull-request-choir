@@ -1,22 +1,892 @@
 <!doctype html>
 <html lang="en">
   <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta
-      name="description"
-      content="Pull Request Choir turns GitHub pull requests into a living, playable community instrument."
-    />
-    <meta property="og:title" content="Pull Request Choir" />
-    <meta
-      property="og:description"
-      content="Every merged voice changes the song. No backend, no tracking, just GitHub as a choir."
-    />
-    <meta name="theme-color" content="#050706" />
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="Pull Request Choir turns GitHub pull requests into a living, playable community instrument.">
+    <meta property="og:title" content="Pull Request Choir">
+    <meta property="og:description" content="Every merged voice changes the score. GitHub is the database; pull requests are the instrument.">
+    <meta name="theme-color" content="#f8f7f4">
     <title>Pull Request Choir</title>
+    <style>
+      :root {
+        --paper: #f8f7f4;
+        --ink: #2c2c2c;
+        --muted: #69655f;
+        --line: #d8d3ca;
+        --line-strong: #bdb6aa;
+        --green: #4a7c59;
+        --terracotta: #c47a6a;
+        --mono: "JetBrains Mono", "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+        --sans: "Aptos", "Segoe UI", system-ui, -apple-system, sans-serif;
+        --serif: "EB Garamond", Georgia, "Times New Roman", serif;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html {
+        color: var(--ink);
+        background: var(--paper);
+        font-family: var(--sans);
+        line-height: 1.45;
+        text-rendering: optimizeLegibility;
+      }
+
+      body {
+        min-height: 100vh;
+        margin: 0;
+        background:
+          repeating-linear-gradient(0deg, rgba(44, 44, 44, 0.025) 0 1px, transparent 1px 22px),
+          repeating-linear-gradient(90deg, rgba(44, 44, 44, 0.018) 0 1px, transparent 1px 28px),
+          var(--paper);
+      }
+
+      body::before {
+        position: fixed;
+        inset: 0;
+        z-index: -1;
+        pointer-events: none;
+        content: "";
+        opacity: 0.22;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='80' height='80' viewBox='0 0 80 80'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.82' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='80' height='80' filter='url(%23n)' opacity='.27'/%3E%3C/svg%3E");
+      }
+
+      button,
+      input {
+        font: inherit;
+      }
+
+      button,
+      a {
+        -webkit-tap-highlight-color: transparent;
+      }
+
+      a {
+        color: var(--ink);
+        text-underline-offset: 0.18em;
+      }
+
+      button {
+        color: inherit;
+        cursor: pointer;
+      }
+
+      :focus-visible {
+        outline: 2px solid var(--terracotta);
+        outline-offset: 3px;
+      }
+
+      .page {
+        display: grid;
+        grid-template-columns:
+          minmax(18px, 4vw)
+          minmax(0, 1.06fr)
+          minmax(310px, 0.42fr)
+          minmax(18px, 4vw);
+        min-height: 100vh;
+      }
+
+      .rail {
+        grid-column: 1 / 2;
+        border-right: 1px solid var(--line);
+      }
+
+      .mast {
+        grid-column: 2 / 4;
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(260px, 0.42fr);
+        gap: clamp(22px, 4vw, 56px);
+        padding: clamp(22px, 4vw, 54px) 0 28px clamp(18px, 2vw, 34px);
+        border-bottom: 1px solid var(--ink);
+      }
+
+      .eyebrow,
+      .meta,
+      .status,
+      .score-label,
+      .voice-table th,
+      .field-label {
+        font-family: var(--mono);
+        font-size: 0.72rem;
+        letter-spacing: 0.03em;
+        text-transform: uppercase;
+      }
+
+      .eyebrow {
+        color: var(--green);
+        margin: 0 0 16px;
+      }
+
+      h1 {
+        max-width: 850px;
+        margin: 0;
+        font-family: var(--serif);
+        font-size: clamp(3.15rem, 8vw, 8rem);
+        font-weight: 500;
+        line-height: 0.91;
+        letter-spacing: -0.035em;
+      }
+
+      .intro {
+        max-width: 620px;
+        margin: 24px 0 0;
+        color: #494743;
+        font-size: clamp(1rem, 1.5vw, 1.16rem);
+      }
+
+      .control-panel {
+        align-self: end;
+        display: grid;
+        gap: 16px;
+        border-left: 1px solid var(--line-strong);
+        padding-left: clamp(18px, 3vw, 30px);
+      }
+
+      .status-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 7px;
+      }
+
+      .status {
+        display: inline-flex;
+        min-height: 28px;
+        align-items: center;
+        border: 1px solid var(--line-strong);
+        padding: 0 8px;
+        color: #3e3d39;
+        background: rgba(248, 247, 244, 0.74);
+      }
+
+      .status[data-state="open"]::before,
+      .play::before {
+        width: 7px;
+        height: 7px;
+        margin-right: 8px;
+        border-radius: 99px;
+        background: var(--green);
+        content: "";
+      }
+
+      .status[data-state="queued"]::before {
+        width: 7px;
+        height: 7px;
+        margin-right: 8px;
+        background: var(--terracotta);
+        content: "";
+      }
+
+      .controls {
+        display: grid;
+        grid-template-columns: 0.8fr 1.2fr;
+        gap: 8px;
+      }
+
+      .play,
+      .repo-link,
+      .copy {
+        min-height: 44px;
+        border: 1px solid var(--ink);
+        border-radius: 0;
+        background: transparent;
+        font-weight: 750;
+      }
+
+      .play {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        background: var(--ink);
+        color: var(--paper);
+      }
+
+      .repo-link {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        text-decoration: none;
+      }
+
+      .bpm {
+        display: grid;
+        gap: 8px;
+        border-top: 1px solid var(--line);
+        padding-top: 14px;
+      }
+
+      .bpm-line {
+        display: flex;
+        justify-content: space-between;
+        gap: 16px;
+        font-family: var(--mono);
+        font-size: 0.82rem;
+      }
+
+      input[type="range"] {
+        width: 100%;
+        accent-color: var(--green);
+      }
+
+      .score {
+        container-type: inline-size;
+        grid-column: 2 / 3;
+        min-height: 560px;
+        padding: 28px clamp(18px, 2vw, 34px) 28px clamp(18px, 2vw, 34px);
+        border-right: 1px solid var(--line);
+      }
+
+      .score-head {
+        display: grid;
+        grid-template-columns: 0.7fr 1fr;
+        gap: 24px;
+        align-items: end;
+        margin-bottom: 18px;
+      }
+
+      .score-label {
+        color: var(--muted);
+      }
+
+      .hash {
+        color: var(--ink);
+        font-family: var(--mono);
+        font-size: 0.82rem;
+        text-align: right;
+      }
+
+      .staff {
+        position: relative;
+        min-height: clamp(430px, 56vh, 640px);
+        border-top: 1px solid var(--line-strong);
+        border-bottom: 1px solid var(--line-strong);
+        background:
+          repeating-linear-gradient(0deg, transparent 0 35px, rgba(74, 124, 89, 0.16) 35px 36px, transparent 36px 43px),
+          repeating-linear-gradient(90deg, transparent 0 119px, rgba(44, 44, 44, 0.055) 119px 120px);
+      }
+
+      .staff svg {
+        display: block;
+        width: 100%;
+        height: clamp(430px, 56vh, 640px);
+      }
+
+      .edge-note {
+        position: absolute;
+        left: 0;
+        bottom: 18px;
+        width: min(540px, 88%);
+        padding-top: 12px;
+        border-top: 2px solid var(--ink);
+      }
+
+      .edge-note h2 {
+        margin: 6px 0 8px;
+        font-family: var(--serif);
+        font-size: clamp(2.1rem, 4vw, 4.2rem);
+        font-weight: 500;
+        line-height: 0.95;
+        letter-spacing: -0.025em;
+      }
+
+      .edge-note p {
+        margin: 0;
+        max-width: 480px;
+        color: #44423e;
+        font-family: var(--serif);
+        font-size: clamp(1.08rem, 1.8vw, 1.35rem);
+        line-height: 1.32;
+      }
+
+      .side {
+        grid-column: 3 / 4;
+        display: grid;
+        align-content: start;
+        gap: 0;
+        padding: 28px 0 28px clamp(18px, 2vw, 30px);
+      }
+
+      .detail {
+        display: grid;
+        border-top: 1px solid var(--ink);
+      }
+
+      .detail-row {
+        display: grid;
+        grid-template-columns: 116px 1fr;
+        gap: 16px;
+        padding: 13px 0;
+        border-bottom: 1px solid var(--line);
+      }
+
+      .detail-row strong {
+        font-weight: 650;
+      }
+
+      .join {
+        display: grid;
+        gap: 16px;
+        padding: 24px 0;
+        border-bottom: 1px solid var(--ink);
+      }
+
+      .join h2 {
+        margin: 0;
+        font-family: var(--serif);
+        font-size: clamp(2rem, 3vw, 3.35rem);
+        font-weight: 500;
+        line-height: 0.98;
+      }
+
+      .join p {
+        margin: 0;
+        color: #4f4b46;
+      }
+
+      .copy {
+        width: fit-content;
+        padding: 0 13px;
+        background: var(--green);
+        color: var(--paper);
+        border-color: var(--green);
+        font-family: var(--mono);
+        font-size: 0.82rem;
+      }
+
+      .moods {
+        display: grid;
+        margin-top: 24px;
+        border-top: 1px solid var(--line-strong);
+      }
+
+      .mood {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: 12px;
+        padding: 10px 0;
+        border-bottom: 1px solid var(--line);
+        background: transparent;
+        text-align: left;
+      }
+
+      .mood span {
+        font-weight: 700;
+      }
+
+      .mood small,
+      .mood output {
+        color: var(--muted);
+        font-family: var(--mono);
+        font-size: 0.76rem;
+      }
+
+      .mood[aria-pressed="true"] span {
+        color: var(--terracotta);
+      }
+
+      .voices {
+        grid-column: 2 / 4;
+        padding: 0 0 48px clamp(18px, 2vw, 34px);
+        border-top: 1px solid var(--ink);
+      }
+
+      .voice-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.92rem;
+      }
+
+      .voice-table caption {
+        padding: 18px 0 10px;
+        text-align: left;
+        font-family: var(--mono);
+        font-size: 0.72rem;
+        letter-spacing: 0.03em;
+        text-transform: uppercase;
+        color: var(--muted);
+      }
+
+      .voice-table th,
+      .voice-table td {
+        border-bottom: 1px solid var(--line);
+        padding: 9px 12px 9px 0;
+        text-align: left;
+        vertical-align: top;
+      }
+
+      .voice-table td:nth-child(2),
+      .voice-table td:nth-child(3),
+      .voice-table td:nth-child(4) {
+        font-family: var(--mono);
+        font-size: 0.82rem;
+      }
+
+      .voice-pick {
+        border: 0;
+        padding: 0;
+        background: transparent;
+        color: var(--ink);
+        font-weight: 720;
+        text-align: left;
+      }
+
+      .voice-pick[aria-current="true"] {
+        color: var(--terracotta);
+      }
+
+      @container (max-width: 720px) {
+        .score-head {
+          grid-template-columns: 1fr;
+        }
+
+        .hash {
+          text-align: left;
+        }
+      }
+
+      @media (max-width: 920px) {
+        .page {
+          display: block;
+        }
+
+        .rail {
+          display: none;
+        }
+
+        .mast,
+        .score,
+        .side,
+        .voices {
+          padding-left: 16px;
+          padding-right: 16px;
+        }
+
+        .mast {
+          grid-template-columns: 1fr;
+        }
+
+        .control-panel {
+          border-left: 0;
+          border-top: 1px solid var(--line-strong);
+          padding: 18px 0 0;
+        }
+
+        .score {
+          border-right: 0;
+        }
+
+        .side {
+          border-top: 1px solid var(--ink);
+        }
+
+        .voices {
+          overflow-x: auto;
+        }
+
+        .voice-table {
+          min-width: 720px;
+        }
+      }
+
+      @media (max-width: 560px) {
+        h1 {
+          font-size: 3.18rem;
+        }
+
+        .controls {
+          grid-template-columns: 1fr;
+        }
+
+        .staff,
+        .staff svg {
+          min-height: 500px;
+          height: 500px;
+        }
+
+        .detail-row {
+          grid-template-columns: 1fr;
+          gap: 2px;
+        }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        *,
+        *::before,
+        *::after {
+          scroll-behavior: auto !important;
+          transition-duration: 0.001ms !important;
+          animation-duration: 0.001ms !important;
+        }
+      }
+    </style>
   </head>
   <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
+    <main class="page">
+      <div class="rail" aria-hidden="true"></div>
+
+      <header class="mast">
+        <div>
+          <p class="eyebrow">origin/main · community instrument · no backend</p>
+          <h1>Pull requests rendered as a public score.</h1>
+          <p class="intro">Each merged JSON file adds one permanent voice. The repository is the database; the browser is the rehearsal room.</p>
+        </div>
+
+        <section class="control-panel" aria-label="Playback controls">
+          <div class="status-row" aria-label="Repository status">
+            <span class="status" data-state="open">PR intake open</span>
+            <span class="status" data-state="queued">pages: deployed</span>
+            <span class="status">hash: <code id="scoreHash">1b7054d9</code></span>
+          </div>
+
+          <div class="controls">
+            <button class="play" id="play" type="button" aria-pressed="false">Listen</button>
+            <a class="repo-link" href="https://github.com/PondSec/pull-request-choir" rel="noreferrer" target="_blank">GitHub repository</a>
+          </div>
+
+          <label class="bpm" for="bpm">
+            <span class="bpm-line"><span>code pace</span><output id="bpmValue">82 bpm</output></span>
+            <input id="bpm" type="range" min="62" max="118" value="82">
+          </label>
+        </section>
+      </header>
+
+      <section class="score" aria-label="Interactive score">
+        <div class="score-head">
+          <span class="score-label">score / generated from community voices</span>
+          <span class="hash" id="scoreMeta">16 voices · 24 replies · public/choir.json</span>
+        </div>
+
+        <div class="staff">
+          <svg id="scoreSvg" role="img" aria-label="Voice graph rendered as a musical staff" viewBox="0 0 1000 600" preserveAspectRatio="none"></svg>
+          <article class="edge-note" aria-live="polite">
+            <span class="field-label" id="voiceNumber">selected voice</span>
+            <h2 id="voiceName">Green Room</h2>
+            <p id="voicePhrase">"Before the internet gets loud, let it tune one shared note."</p>
+          </article>
+        </div>
+      </section>
+
+      <aside class="side" aria-label="Selected voice metadata">
+        <dl class="detail">
+          <div class="detail-row">
+            <dt class="field-label">Handle</dt>
+            <dd><strong id="voiceHandle">@PondSec</strong></dd>
+          </div>
+          <div class="detail-row">
+            <dt class="field-label">Mood</dt>
+            <dd><strong id="voiceMood">calm</strong></dd>
+          </div>
+          <div class="detail-row">
+            <dt class="field-label">Note</dt>
+            <dd><strong id="voiceNote">D3</strong></dd>
+          </div>
+          <div class="detail-row">
+            <dt class="field-label">Replies to</dt>
+            <dd><strong id="voiceReplies">Quiet Room</strong></dd>
+          </div>
+        </dl>
+
+        <section class="join" aria-label="Contribution instructions">
+          <h2>Add one note. Keep the diff small.</h2>
+          <p>Fork, run the voice wizard, commit one file under <code>community/voices/</code>, and open a pull request.</p>
+          <button class="copy" id="copy" type="button">npm run new-voice</button>
+        </section>
+
+        <section class="moods" id="moods" aria-label="Filter voices by mood"></section>
+      </aside>
+
+      <section class="voices" aria-label="Voice index">
+        <table class="voice-table">
+          <caption>melodic order / click a voice to inspect</caption>
+          <thead>
+            <tr>
+              <th scope="col">voice</th>
+              <th scope="col">note</th>
+              <th scope="col">mood</th>
+              <th scope="col">handle</th>
+              <th scope="col">phrase</th>
+            </tr>
+          </thead>
+          <tbody id="voiceRows"></tbody>
+        </table>
+      </section>
+    </main>
+
+    <script>
+      const fallbackChoir = {
+        signature: "1b7054d9",
+        tempo: 82,
+        stats: { voices: 16, links: 24 },
+        moods: {
+          wonder: { label: "Wonder", accent: "#4a7c59", description: "curious signal" },
+          hope: { label: "Hope", accent: "#8b7d42", description: "forward tone" },
+          defiance: { label: "Defiance", accent: "#c47a6a", description: "rough edge" },
+          focus: { label: "Focus", accent: "#536257", description: "narrow beam" },
+          calm: { label: "Calm", accent: "#6f7f6e", description: "low room" },
+          joy: { label: "Joy", accent: "#a96f52", description: "quick pulse" },
+          chaos: { label: "Chaos", accent: "#7c6674", description: "unstable overtone" }
+        },
+        voices: [
+          { id: "green-room", handle: "PondSec", displayName: "Green Room", phrase: "Before the internet gets loud, let it tune one shared note.", mood: "calm", note: "D3", color: "#6f7f6e", respondsTo: ["quiet-room"], x: 0.51, y: 0.34, frequency: 146.832, number: 1 },
+          { id: "quiet-room", handle: "PondSec", displayName: "Quiet Room", phrase: "Leave room for the quiet people; they often carry the best harmonies.", mood: "calm", note: "C4", color: "#6f7f6e", respondsTo: ["tiny-proof"], x: 0.79, y: 0.36, frequency: 261.626, number: 2 },
+          { id: "late-commit", handle: "PondSec", displayName: "Late Commit", phrase: "Some of the best ideas arrive after midnight and pretend they were planned.", mood: "focus", note: "D4", color: "#536257", respondsTo: ["first-light"], x: 0.31, y: 0.36, frequency: 293.665, number: 3 },
+          { id: "clean-diff", handle: "PondSec", displayName: "Clean Diff", phrase: "One small clean diff can make a stranger feel invited.", mood: "focus", note: "E5", color: "#536257", respondsTo: ["late-commit"], x: 0.42, y: 0.44, frequency: 659.255, number: 4 },
+          { id: "first-light", handle: "PondSec", displayName: "First Light", phrase: "I left the first note so the next stranger is not singing alone.", mood: "wonder", note: "E4", color: "#4a7c59", respondsTo: [], x: 0.23, y: 0.28, frequency: 329.628, number: 5 },
+          { id: "future-ear", handle: "PondSec", displayName: "Future Ear", phrase: "Someone will open this later and hear that we tried to build together.", mood: "wonder", note: "D5", color: "#4a7c59", respondsTo: ["stranger-loop", "merge-breath"], x: 0.54, y: 0.18, frequency: 587.33, number: 6 },
+          { id: "stranger-loop", handle: "PondSec", displayName: "Stranger Loop", phrase: "The loop gets better when somebody you will never meet answers it.", mood: "wonder", note: "A3", color: "#4a7c59", respondsTo: ["first-light", "open-window"], x: 0.16, y: 0.58, frequency: 220, number: 7 },
+          { id: "merge-breath", handle: "PondSec", displayName: "Merge Breath", phrase: "Every merge is one breath in a thing no single person can finish.", mood: "hope", note: "B3", color: "#8b7d42", respondsTo: ["small-ritual"], x: 0.36, y: 0.48, frequency: 246.942, number: 8 },
+          { id: "tiny-proof", handle: "PondSec", displayName: "Tiny Proof", phrase: "A tiny proof that the internet can still build something gentle together.", mood: "hope", note: "G4", color: "#8b7d42", respondsTo: ["first-light"], x: 0.54, y: 0.26, frequency: 391.995, number: 9 },
+          { id: "small-ritual", handle: "PondSec", displayName: "Small Ritual", phrase: "Fork, add a voice, open a pull request, become part of the song.", mood: "hope", note: "C5", color: "#8b7d42", respondsTo: ["tiny-proof"], x: 0.74, y: 0.63, frequency: 523.251, number: 10 },
+          { id: "glitch-petal", handle: "PondSec", displayName: "Glitch Petal", phrase: "The strange notes are where the whole thing starts to feel alive.", mood: "chaos", note: "B4", color: "#7c6674", respondsTo: ["red-button"], x: 0.63, y: 0.53, frequency: 493.883, number: 11 },
+          { id: "static-bloom", handle: "PondSec", displayName: "Static Bloom", phrase: "Static files can still bloom if enough people touch them.", mood: "chaos", note: "F5", color: "#7c6674", respondsTo: ["glitch-petal"], x: 0.43, y: 0.76, frequency: 698.456, number: 12 },
+          { id: "red-button", handle: "PondSec", displayName: "Red Button", phrase: "Pressing merge should feel like adding a spark to a public machine.", mood: "defiance", note: "A4", color: "#c47a6a", respondsTo: ["late-commit"], x: 0.72, y: 0.57, frequency: 440, number: 13 },
+          { id: "signal-flare", handle: "PondSec", displayName: "Signal Flare", phrase: "This is not a guestbook; it is a signal flare with version control.", mood: "defiance", note: "G5", color: "#c47a6a", respondsTo: ["red-button"], x: 0.76, y: 0.69, frequency: 783.991, number: 14 },
+          { id: "open-window", handle: "PondSec", displayName: "Open Window", phrase: "A public repo is an open window; sometimes the world sings back.", mood: "joy", note: "F4", color: "#a96f52", respondsTo: ["quiet-room"], x: 0.67, y: 0.60, frequency: 349.228, number: 15 },
+          { id: "noisy-kindness", handle: "PondSec", displayName: "Noisy Kindness", phrase: "Kindness does not have to be quiet; sometimes it needs a sequencer.", mood: "joy", note: "A5", color: "#a96f52", respondsTo: ["open-window"], x: 0.82, y: 0.76, frequency: 880, number: 16 }
+        ]
+      };
+
+      const state = {
+        choir: fallbackChoir,
+        voices: [],
+        selected: 0,
+        playing: false,
+        bpm: 82,
+        audio: null,
+        timer: null
+      };
+
+      const $ = (id) => document.getElementById(id);
+      const midi = (note) => ({ C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 }[note[0]] + (Number(note.slice(1)) + 1) * 12);
+
+      function normalizeVoice(voice, index) {
+        const angle = index * 2.399963;
+        return {
+          ...voice,
+          x: voice.x ?? 0.5 + Math.cos(angle) * (0.18 + (index % 5) * 0.045),
+          y: voice.y ?? 0.47 + Math.sin(angle) * (0.16 + (index % 4) * 0.04),
+          color: voice.color ?? fallbackChoir.moods[voice.mood]?.accent ?? "#4a7c59",
+          frequency: voice.frequency ?? 440 * 2 ** ((midi(voice.note) - 69) / 12),
+          number: voice.number ?? index + 1
+        };
+      }
+
+      function melodicOrder(voices) {
+        return [...voices].sort((a, b) => midi(a.note) - midi(b.note) || a.mood.localeCompare(b.mood) || a.id.localeCompare(b.id));
+      }
+
+      function ensureAudio() {
+        if (state.audio) return state.audio;
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        const ctx = new AudioContext();
+        const master = ctx.createGain();
+        const dry = ctx.createGain();
+        const wet = ctx.createGain();
+        const convolver = ctx.createConvolver();
+        const delay = ctx.createDelay(1.1);
+        const feedback = ctx.createGain();
+        const length = ctx.sampleRate * 4.6;
+        const impulse = ctx.createBuffer(2, length, ctx.sampleRate);
+
+        for (let channel = 0; channel < 2; channel += 1) {
+          const data = impulse.getChannelData(channel);
+          for (let i = 0; i < length; i += 1) data[i] = (Math.random() * 2 - 1) * (1 - i / length) ** 3.1;
+        }
+
+        convolver.buffer = impulse;
+        dry.gain.value = 0.48;
+        wet.gain.value = 0.54;
+        delay.delayTime.value = 0.29;
+        feedback.gain.value = 0.22;
+        master.gain.value = 0.82;
+        dry.connect(master);
+        convolver.connect(wet);
+        wet.connect(master);
+        delay.connect(feedback);
+        feedback.connect(delay);
+        delay.connect(convolver);
+        master.connect(ctx.destination);
+        state.audio = { ctx, dry, convolver, delay };
+        return state.audio;
+      }
+
+      function playVoice(voice) {
+        const audio = ensureAudio();
+        const now = audio.ctx.currentTime;
+        const motif = { calm: [0, 12], focus: [0, 7, 14], hope: [0, 4, 7], wonder: [0, 7, 12], defiance: [0, 3, 10], joy: [0, 4, 9], chaos: [0, 5, 11] }[voice.mood] || [0, 7, 12];
+
+        motif.forEach((step, i) => {
+          const osc = audio.ctx.createOscillator();
+          const gain = audio.ctx.createGain();
+          const pan = audio.ctx.createStereoPanner();
+          const start = now + i * 0.18;
+          osc.type = voice.mood === "calm" ? "sine" : "triangle";
+          osc.frequency.setValueAtTime(voice.frequency * 2 ** (step / 12), start);
+          pan.pan.setValueAtTime((voice.x - 0.5) * 1.35, start);
+          gain.gain.setValueAtTime(0.0001, start);
+          gain.gain.exponentialRampToValueAtTime(0.08, start + 0.04);
+          gain.gain.exponentialRampToValueAtTime(0.0001, start + 1.35 + i * 0.14);
+          osc.connect(gain);
+          gain.connect(pan);
+          pan.connect(audio.dry);
+          pan.connect(audio.convolver);
+          pan.connect(audio.delay);
+          osc.start(start);
+          osc.stop(start + 1.6);
+        });
+      }
+
+      function renderScore() {
+        const svg = $("scoreSvg");
+        const selected = state.voices[state.selected];
+        svg.innerHTML = "";
+        const links = [];
+        state.voices.forEach((voice) => voice.respondsTo?.forEach((id) => links.push([voice, state.voices.find((item) => item.id === id)])));
+
+        links.forEach(([source, target]) => {
+          if (!target) return;
+          const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+          const x1 = source.x * 1000, y1 = source.y * 600, x2 = target.x * 1000, y2 = target.y * 600;
+          path.setAttribute("d", `M ${x1} ${y1} Q ${(x1 + x2) / 2} ${Math.min(y1, y2) - 70} ${x2} ${y2}`);
+          path.setAttribute("fill", "none");
+          path.setAttribute("stroke", source.id === selected.id || target.id === selected.id ? source.color : "#bdb6aa");
+          path.setAttribute("stroke-width", source.id === selected.id || target.id === selected.id ? "2" : "1");
+          path.setAttribute("opacity", source.id === selected.id || target.id === selected.id ? "0.72" : "0.34");
+          svg.append(path);
+        });
+
+        state.voices.forEach((voice, index) => {
+          const group = document.createElementNS("http://www.w3.org/2000/svg", "g");
+          const stem = document.createElementNS("http://www.w3.org/2000/svg", "line");
+          const note = document.createElementNS("http://www.w3.org/2000/svg", "ellipse");
+          const active = index === state.selected;
+          const x = voice.x * 1000, y = voice.y * 600;
+          stem.setAttribute("x1", x + 12);
+          stem.setAttribute("x2", x + 12);
+          stem.setAttribute("y1", y - 70);
+          stem.setAttribute("y2", y);
+          stem.setAttribute("stroke", active ? "#2c2c2c" : "#8d877d");
+          stem.setAttribute("stroke-width", active ? "2" : "1");
+          stem.setAttribute("opacity", active ? "0.82" : "0.46");
+          note.setAttribute("cx", x);
+          note.setAttribute("cy", y);
+          note.setAttribute("rx", active ? "18" : "13");
+          note.setAttribute("ry", active ? "11" : "8");
+          note.setAttribute("transform", `rotate(-13 ${x} ${y})`);
+          note.setAttribute("fill", voice.color);
+          note.setAttribute("opacity", active ? "0.96" : "0.62");
+          note.setAttribute("tabindex", "0");
+          note.setAttribute("role", "button");
+          note.setAttribute("aria-label", `Select ${voice.displayName}`);
+          group.append(stem, note);
+          group.addEventListener("click", () => selectVoice(index, true));
+          group.addEventListener("keydown", (event) => {
+            if (event.key === "Enter" || event.key === " ") {
+              event.preventDefault();
+              selectVoice(index, true);
+            }
+          });
+          svg.append(group);
+        });
+      }
+
+      function renderMoods() {
+        const counts = state.voices.reduce((acc, voice) => ((acc[voice.mood] = (acc[voice.mood] || 0) + 1), acc), {});
+        $("moods").innerHTML = Object.entries(state.choir.moods).map(([key, mood]) => `
+          <button class="mood" type="button" data-mood="${key}" aria-pressed="false">
+            <span>${mood.label}</span>
+            <output>${String(counts[key] || 0).padStart(2, "0")}</output>
+            <small>${mood.description || key}</small>
+          </button>
+        `).join("");
+        $("moods").querySelectorAll("button").forEach((button) => {
+          button.addEventListener("click", () => {
+            const index = state.voices.findIndex((voice) => voice.mood === button.dataset.mood);
+            if (index >= 0) selectVoice(index, false);
+          });
+        });
+      }
+
+      function renderRows() {
+        $("voiceRows").innerHTML = state.voices.map((voice, index) => `
+          <tr>
+            <td><button class="voice-pick" type="button" data-index="${index}" aria-current="${index === state.selected}">${voice.displayName}</button></td>
+            <td>${voice.note}</td>
+            <td>${voice.mood}</td>
+            <td>@${voice.handle}</td>
+            <td>${voice.phrase}</td>
+          </tr>
+        `).join("");
+        $("voiceRows").querySelectorAll("button").forEach((button) => {
+          button.addEventListener("click", () => selectVoice(Number(button.dataset.index), true));
+        });
+      }
+
+      function selectVoice(index, sound) {
+        state.selected = index;
+        const voice = state.voices[index];
+        $("voiceNumber").textContent = `voice ${String(voice.number).padStart(2, "0")}`;
+        $("voiceName").textContent = voice.displayName;
+        $("voicePhrase").textContent = `"${voice.phrase}"`;
+        $("voiceHandle").textContent = `@${voice.handle}`;
+        $("voiceMood").textContent = voice.mood;
+        $("voiceNote").textContent = voice.note;
+        $("voiceReplies").textContent = voice.respondsTo?.length ? voice.respondsTo.map((id) => state.voices.find((item) => item.id === id)?.displayName || id).join(", ") : "root voice";
+        document.querySelectorAll(".mood").forEach((button) => button.setAttribute("aria-pressed", String(button.dataset.mood === voice.mood)));
+        document.querySelectorAll(".voice-pick").forEach((button) => button.setAttribute("aria-current", String(Number(button.dataset.index) === index)));
+        renderScore();
+        if (sound) playVoice(voice);
+      }
+
+      function tick() {
+        selectVoice((state.selected + 1) % state.voices.length, true);
+      }
+
+      async function boot() {
+        try {
+          const response = await fetch("public/choir.json", { cache: "no-store" });
+          if (response.ok) state.choir = await response.json();
+        } catch {}
+
+        state.choir.tempo = 82;
+        state.voices = melodicOrder((state.choir.voices || fallbackChoir.voices).map(normalizeVoice));
+        $("scoreHash").textContent = state.choir.signature || fallbackChoir.signature;
+        $("scoreMeta").textContent = `${state.voices.length} voices · ${state.choir.links?.length || state.choir.stats?.links || 0} replies · public/choir.json`;
+        renderMoods();
+        renderRows();
+        selectVoice(0, false);
+      }
+
+      $("bpm").addEventListener("input", (event) => {
+        state.bpm = Number(event.target.value);
+        $("bpmValue").textContent = `${state.bpm} bpm`;
+        if (state.playing) {
+          clearInterval(state.timer);
+          state.timer = setInterval(tick, Math.max(360, Math.round(60000 / state.bpm)));
+        }
+      });
+
+      $("play").addEventListener("click", async () => {
+        const audio = ensureAudio();
+        if (audio.ctx.state === "suspended") await audio.ctx.resume();
+        state.playing = !state.playing;
+        $("play").textContent = state.playing ? "Pause" : "Listen";
+        $("play").setAttribute("aria-pressed", String(state.playing));
+        clearInterval(state.timer);
+        if (state.playing) {
+          playVoice(state.voices[state.selected]);
+          state.timer = setInterval(tick, Math.max(360, Math.round(60000 / state.bpm)));
+        }
+      });
+
+      $("copy").addEventListener("click", async () => {
+        await navigator.clipboard.writeText("npm run new-voice");
+        $("copy").textContent = "copied";
+        setTimeout(() => ($("copy").textContent = "npm run new-voice"), 1100);
+      });
+
+      boot();
+    </script>
   </body>
 </html>
